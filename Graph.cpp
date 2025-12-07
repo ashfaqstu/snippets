@@ -146,6 +146,92 @@ public:
             }
         }
     }
+    // Approach 1: Topological Sort using DFS (Stack)
+    void topologicalSortDFS() {
+        stack<int> s;
+        vector<bool> visited(V, false);
+
+        // Call recursive helper for all vertices
+        for (int i = 0; i < V; i++) {
+            if (!visited[i]) {
+                topoSortRecursive(i, visited, s);
+            }
+        }
+
+        // Print contents of stack
+        cout << "Topological Sort (DFS): ";
+        while (!s.empty()) {
+            cout << s.top() << " ";
+            s.pop();
+        }
+        cout << endl;
+    }
+
+    // Approach 2: Kahn's Algorithm (BFS / In-Degree)
+    void topologicalSortBFS() {
+        vector<int> inDegree(V, 0);
+        
+        // 1. Calculate in-degrees for all nodes
+        for (int u = 0; u < V; u++) {
+            for (int v : adj[u]) {
+                inDegree[v]++;
+            }
+        }
+
+        // 2. Queue for nodes with 0 in-degree
+        queue<int> q;
+        for (int i = 0; i < V; i++) {
+            if (inDegree[i] == 0) {
+                q.push(i);
+            }
+        }
+
+        vector<int> result;
+        int visitedCount = 0;
+
+        // 3. Process the queue
+        while (!q.empty()) {
+            int u = q.front();
+            q.pop();
+            result.push_back(u);
+            visitedCount++;
+
+            // Reduce in-degree of neighbors
+            for (int v : adj[u]) {
+                inDegree[v]--;
+                // If neighbor becomes independent, add to queue
+                if (inDegree[v] == 0) {
+                    q.push(v);
+                }
+            }
+        }
+
+        // Check for cycle
+        if (visitedCount != V) {
+            cout << "Topological Sort not possible (Graph has a cycle!)\n";
+            return;
+        }
+
+        cout << "Topological Sort (Kahn's): ";
+        for (int node : result) {
+            cout << node << " ";
+        }
+        cout << endl;
+    }
+    // Helper for DFS Topological Sort
+    void topoSortRecursive(int u, vector<bool>& visited, stack<int>& s) {
+        visited[u] = true;
+        
+        // Visit all neighbors first
+        for (int v : adj[u]) {
+            if (!visited[v]) {
+                topoSortRecursive(v, visited, s);
+            }
+        }
+        
+        // Push current node to stack after visiting all its children
+        s.push(u);
+    }
     bool check_bipartite() {
         vector<int> color(V, -1);
         for (int i = 0; i < V; i++) {
