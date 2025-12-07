@@ -86,6 +86,66 @@ public:
 
         return res;
     }
+    // Helper for Kosaraju's: Fills stack by finish time
+    void fillOrder(int u, vector<bool>& visited, stack<int>& s) {
+        visited[u] = true;
+        for (int v : adj[u]) {
+            if (!visited[v]) {
+                fillOrder(v, visited, s);
+            }
+        }
+        // Push to stack only after processing all children
+        s.push(u); 
+    }
+
+    // Helper for Kosaraju's: Standard DFS on the Transposed Graph
+    void DFS_on_Transpose(int u, vector<bool>& visited, const vector<vector<int>>& adjRev) {
+        visited[u] = true;
+        cout << u << " ";
+        for (int v : adjRev[u]) {
+            if (!visited[v]) {
+                DFS_on_Transpose(v, visited, adjRev);
+            }
+        }
+    }
+    // Kosaraju's Algorithm to print SCCs
+    void printSCCs() {
+        stack<int> s;
+        vector<bool> visited(V, false);
+
+        // Step 1: Fill vertices in stack according to their finishing times
+        for (int i = 0; i < V; i++) {
+            if (!visited[i]) {
+                fillOrder(i, visited, s);
+            }
+        }
+
+        // Step 2: Create a reversed (transposed) graph
+        vector<vector<int>> adjRev(V);
+        for (int v = 0; v < V; v++) {
+            for (int neighbor : adj[v]) {
+                // Original: v -> neighbor. Reverse: neighbor -> v
+                adjRev[neighbor].push_back(v); 
+            }
+        }
+
+        // Step 3: Process all vertices in order defined by Stack
+        // Reset visited array for the second pass
+        fill(visited.begin(), visited.end(), false);
+        
+        cout << "Strongly Connected Components:\n";
+        while (!s.empty()) {
+            int v = s.top();
+            s.pop();
+
+            // If node is not visited in the second pass, it's the start of a new SCC
+            if (!visited[v]) {
+                cout << "{ ";
+                DFS_on_Transpose(v, visited, adjRev);
+                cout << "}" << endl;
+            }
+        }
+    }
     bool check_bipartite() {
         vector<int> color(V, -1);
         for (int i = 0; i < V; i++) {
