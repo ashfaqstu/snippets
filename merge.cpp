@@ -881,3 +881,41 @@ int main() {
 
     return 0;
 }
+
+
+//second best
+void second_shortest(int n, int start, vector<vector<pair<int, int>>>& adj) {
+    vector<long long> dist1(n + 1, INF);
+    vector<long long> dist2(n + 1, INF);
+    priority_queue<pair<long long, int>, vector<pair<long long, int>>, greater<pair<long long, int>>> pq;
+
+    dist1[start] = 0;
+    pq.push({0, start});
+
+    while (!pq.empty()) {
+        long long d = pq.top().first;
+        int u = pq.top().second;
+        pq.pop();
+
+        // If current distance is worse than our known second best, skip
+        if (d > dist2[u]) continue;
+
+        for (auto& edge : adj[u]) {
+            int v = edge.first;
+            int w = edge.second;
+            long long new_d = d + w;
+
+            if (new_d < dist1[v]) {
+                dist2[v] = dist1[v]; // Old best becomes second best
+                dist1[v] = new_d;     // New best
+                pq.push({dist1[v], v});
+                pq.push({dist2[v], v});
+            } 
+            else if (new_d > dist1[v] && new_d < dist2[v]) {
+                dist2[v] = new_d;     // Found a new second best
+                pq.push({dist2[v], v});
+            }
+        }
+    }
+    // Result is in dist2[target]
+}
