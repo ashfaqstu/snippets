@@ -577,3 +577,307 @@ int main() {
     solve();
     return 0;
 }
+
+
+
+//dsa lab
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+const long long INF = 1e18;
+
+struct Edge {
+    int to;
+    long long weight;
+};
+
+struct Lab {
+    int id;
+    long long total_cost;
+    int capacity;
+};
+
+// Comparator to sort labs by total cost
+bool compareLabs(const Lab& a, const Lab& b) {
+    if (a.total_cost != b.total_cost)
+        return a.total_cost < b.total_cost;
+    return a.id < b.id;
+}
+
+void solve() {
+    int n, m;
+    long long f;
+    if (!(cin >> n >> m >> f)) return;
+
+    vector<int> capacities(n + 1);
+    for (int i = 1; i <= n; i++) cin >> capacities[i];
+
+    vector<vector<Edge>> adj(n + 1);
+    for (int i = 0; i < m; i++) {
+        int u, v;
+        long long w;
+        cin >> u >> v >> w;
+        adj[u].push_back({v, w});
+        adj[v].push_back({u, w});
+    }
+
+    int k_students;
+    cin >> k_students;
+
+    // --- Phase 1: Dijkstra from Lab 1 ---
+    vector<long long> dist(n + 1, INF);
+    priority_queue<pair<long long, int>, vector<pair<long long, int>>, greater<pair<long long, int>>> pq;
+
+    dist[1] = 0;
+    pq.push({0, 1});
+
+    while (!pq.empty()) {
+        long long d = pq.top().first;
+        int u = pq.top().second;
+        pq.pop();
+
+        if (d > dist[u]) continue;
+
+        for (auto& edge : adj[u]) {
+            if (dist[u] + edge.weight < dist[edge.to]) {
+                dist[edge.to] = dist[u] + edge.weight;
+                pq.push({dist[edge.to], edge.to});
+            }
+        }
+    }
+
+    // --- Phase 2: Collect and Sort Labs by Cost ---
+    vector<Lab> available_labs;
+    for (int i = 1; i <= n; i++) {
+        if (dist[i] != INF) {
+            available_labs.push_back({i, dist[i] + f, capacities[i]});
+        }
+    }
+    sort(available_labs.begin(), available_labs.end(), compareLabs);
+
+    // --- Phase 3: Allocate Students ---
+    vector<long long> results;
+    int current_lab_idx = 0;
+
+    for (int s = 0; s < k_students; s++) {
+        // Move to the next lab if the current one is full
+        while (current_lab_idx < available_labs.size() && available_labs[current_lab_idx].capacity == 0) {
+            current_lab_idx++;
+        }
+
+        if (current_lab_idx < available_labs.size()) {
+            results.push_back(available_labs[current_lab_idx].total_cost);
+            available_labs[current_lab_idx].capacity--;
+        } else {
+            results.push_back(-1);
+        }
+    }
+
+    // Output formatted results
+    for (int i = 0; i < results.size(); i++) {
+        cout << results[i] << (i == results.size() - 1 ? "" : " ");
+    }
+    cout << endl;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    solve();
+    return 0;
+}
+
+
+//tax
+
+#include <iostream>
+#include <vector>
+#include <queue>
+
+using namespace std;
+
+const long long INF = 1e18;
+
+struct Edge {
+    int to;
+};
+
+void solve() {
+    int n, m;
+    if (!(cin >> n >> m)) return;
+
+    // Read taxes for each city
+    vector<long long> tax(n + 1);
+    for (int i = 1; i <= n; i++) {
+        cin >> tax[i];
+    }
+
+    // Build adjacency list (roads are bidirectional)
+    vector<vector<int>> adj(n + 1);
+    for (int i = 0; i < m; i++) {
+        int u, v;
+        cin >> u >> v;
+        adj[u].push_back(v);
+        adj[v].push_back(u);
+    }
+
+    // --- Dijkstra's Algorithm ---
+    vector<long long> dist(n + 1, INF);
+    // Min-priority queue: {total_tax, current_city}
+    priority_queue<pair<long long, int>, vector<pair<long long, int>>, greater<pair<long long, int>>> pq;
+
+    // Starting at City 1: Initial cost is the tax of City 1
+    dist[1] = tax[1];
+    pq.push({dist[1], 1});
+
+    while (!pq.empty()) {
+        long long d = pq.top().first;
+        int u = pq.top().second;
+        pq.pop();
+
+        // Standard Dijkstra optimization
+        if (d > dist[u]) continue;
+
+        // If we reached the destination, we can stop early
+        if (u == n) break;
+
+        for (int v : adj[u]) {
+            // The cost to move to city 'v' is the tax of city 'v'
+            if (dist[u] + tax[v] < dist[v]) {
+                dist[v] = dist[u] + tax[v];
+                pq.push({dist[v], v});
+            }
+        }
+    }
+
+    // Output the minimum tax to reach City N
+    if (dist[n] == INF) cout << -1 << endl;
+    else cout << dist[n] << endl;
+}
+
+int main() {
+    ios::sync_with_stdio(false);
+    cin.tie(nullptr);
+    solve();
+    return 0;
+}
+
+
+
+//friend visit
+
+
+#include <iostream>
+#include <vector>
+#include <queue>
+#include <algorithm>
+
+using namespace std;
+
+const long long INF = 1e18;
+
+struct Edge {
+    int to;
+    int weight;
+};
+
+// Dijkstra function that returns distances and parent pointers for path reconstruction
+void dijkstra(int n, int start, const vector<vector<Edge>>& adj, vector<long long>& dist, vector<int>& parent) {
+    dist.assign(n, INF);
+    parent.assign(n, -1);
+    dist[start] = 0;
+    priority_queue<pair<long long, int>, vector<pair<long long, int>>, greater<pair<long long, int>>> pq;
+    pq.push({0, start});
+
+    while (!pq.empty()) {
+        long long d = pq.top().first;
+        int u = pq.top().second;
+        pq.pop();
+
+        if (d > dist[u]) continue;
+
+        for (auto& edge : adj[u]) {
+            if (dist[u] + edge.weight < dist[edge.to]) {
+                dist[edge.to] = dist[u] + edge.weight;
+                parent[edge.to] = u;
+                pq.push({dist[edge.to], edge.to});
+            }
+        }
+    }
+}
+
+// Helper to reconstruct path from parent pointers
+vector<int> getPath(int target, const vector<int>& parent) {
+    vector<int> path;
+    for (int v = target; v != -1; v = parent[v]) {
+        path.push_back(v);
+    }
+    reverse(path.begin(), path.end());
+    return path;
+}
+
+int main() {
+    int s, r;
+    if (!(cin >> s >> r)) return 0;
+
+    vector<vector<Edge>> adj(s), rev_adj(s);
+    for (int i = 0; i < r; i++) {
+        int u, v, t;
+        cin >> u >> v >> t;
+        adj[u].push_back({v, t});
+        rev_adj[v].push_back({u, t});
+    }
+
+    int f;
+    cin >> f;
+
+    vector<long long> distForward, distBackward;
+    vector<int> parentForward, parentBackward;
+
+    // Run Dijkstra on original and reversed graph
+    dijkstra(s, f, adj, distForward, parentForward);
+    dijkstra(s, f, rev_adj, distBackward, parentBackward);
+
+    long long minTotalTime = INF;
+    int bestFriendState = -1;
+
+    // Find state v (v != f) that minimizes distForward[v] + distBackward[v]
+    for (int i = 0; i < s; i++) {
+        if (i == f) continue;
+        if (distForward[i] != INF && distBackward[i] != INF) {
+            long long total = distForward[i] + distBackward[i];
+            if (total < minTotalTime) {
+                minTotalTime = total;
+                bestFriendState = i;
+            }
+        }
+    }
+
+    // Output formatting
+    cout << "Minimum total time: " << minTotalTime << endl;
+    cout << "Paths:" << endl;
+
+    // Forward Path: f -> ... -> bestFriendState
+    vector<int> path1 = getPath(bestFriendState, parentForward);
+    for (int i = 0; i < path1.size(); i++) {
+        cout << path1[i] << (i == path1.size() - 1 ? "" : " -> ");
+    }
+    cout << " (time: " << distForward[bestFriendState] << ")" << endl;
+
+    // Backward Path: bestFriendState -> ... -> f
+    // Note: Reconstructing path from f in rev_adj gives f -> ... -> v in reversed.
+    // We reverse that sequence to get v -> ... -> f in original.
+    vector<int> path2 = getPath(bestFriendState, parentBackward);
+    reverse(path2.begin(), path2.end()); 
+    for (int i = 0; i < path2.size(); i++) {
+        cout << path2[i] << (i == path2.size() - 1 ? "" : " -> ");
+    }
+    cout << " (time: " << distBackward[bestFriendState] << ")" << endl;
+
+    return 0;
+}
