@@ -1,64 +1,93 @@
-#include<bits/stdc++.h>
+#include <iostream>
+#include <vector>
+#include <string>
+#include <unordered_map>
+#include <cmath>
+#include <algorithm>
+
 using namespace std;
-typedef long long ll;
-// #define int long long
-// #define INF 10e16
+
+// Using a safe infinity that won't overflow when added
+const double INF = 1e15;
 const double EPS = 1e-9;
-void floyd(int n, vector<vector<double>> &dist){
-    for(int k=1; k<=n;k++)
-        for (int i =1; i<=n; i++)
-            for (int j =1;j<=n;j++)
-                dist[i][j] =max(dist[i][j], dist[i][k]*dist[k][j]);
 
+/**
+ * Standard Floyd-Warshall using the Min-Sum logic.
+ * After transformation, a path weight is the sum of -log(exchange_rate).
+ */
+void floyd(int n, vector<vector<double>> &dist) {
+    for (int k = 1; k <= n; k++) {
+        for (int i = 1; i <= n; i++) {
+            for (int j = 1; j <= n; j++) {
+                if (dist[i][k] < INF && dist[k][j] < INF) {
+                    if (dist[i][k] + dist[k][j] < dist[i][j]) {
+                        dist[i][j] = dist[i][k] + dist[k][j];
+                    }
+                }
+            }
+        }
+    }
 }
 
-void solve(int l,int count){
-    int n,m;
-    n=l;
-    unordered_map<string,int> name;
-    for(int i=0;i<n;i++){
-        string ab;
-        cin>>ab;
-        name[ab] =i+1;
+bool solve(int n, int caseNum) {
+    unordered_map<string, int> currencyMap;
+    for (int i = 1; i <= n; i++) {
+        string name;
+        cin >> name;
+        currencyMap[name] = i;
     }
 
-    vector<vector <double>> dist(n+1,vector<double>(n+1,0.0));
-    cin>>m;
-    for(int i=0; i<n;i++){
-        dist[i+1][i+1]=1.0;
-    }
-    for(int i=0;i<m;i++){
-        string u,v;
-        double w;
-        cin>>u>>w>>v;
+    // Initialize distance matrix with Infinity
+    vector<vector<double>> dist(n + 1, vector<double>(n + 1, INF));
 
-        dist[name[u]][name[v]] = max(dist[name[u]][name[v]], w);
+    // Distance to self is 0 (log(1.0) = 0)
+    for (int i = 1; i <= n; i++) {
+        dist[i][i] = 0.0;
     }
-    
-    floyd(n,dist);
-     
-    for(int i=1;i<=n;i++){
-       
 
-        if(dist[i][i]>1.0 +EPS){
-            cout<<"Case "<<count<<": Yes"; 
-            return;}
+    int m;
+    cin >> m;
+    for (int i = 0; i < m; i++) {
+        string u, v;
+        double rate;
+        cin >> u >> rate >> v;
+
+        // Transformation: Multiplication of rates > 1 
+        // becomes Sum of -log(rates) < 0
+        double weight = -log(rate);
         
+        // Use min to keep the best exchange rate between two currencies
+        if (weight < dist[currencyMap[u]][currencyMap[v]]) {
+            dist[currencyMap[u]][currencyMap[v]] = weight;
+        }
     }
-    cout<<"Case "<<count<<": No";
-    
+
+    floyd(n, dist);
+
+    // Check the diagonal for any negative values
+    bool possible = false;
+    for (int i = 1; i <= n; i++) {
+        if (dist[i][i] < -EPS) {
+            possible = true;
+            break;
+        }
+    }
+
+    cout << "Case " << caseNum << ": " << (possible ? "Yes" : "No") << endl;
+    return possible;
 }
-int main(){
- 
+
+int main() {
+    // Optimize I/O
     ios_base::sync_with_stdio(false);
     cin.tie(NULL);
-    ll t;
-    // 
-    int count=0;
-    while(cin>>t && t!=0){
-        count++;
-         if (count > 1) cout << '\n'; 
-        solve(t,count);
+
+    int n, caseCount = 0;
+    // Problem usually terminates when n = 0
+    while (cin >> n && n != 0) {
+        caseCount++;
+        solve(n, caseCount);
     }
+
     return 0;
 }

@@ -23,7 +23,7 @@ void solve(){
         int u,v,w;
         cin>>u>>v>>w;
 
-        dist[u][v]=w;
+        dist[u][v]=min(dist[u][v],w);
     }
     for(int i=0; i<n;i++){
         dist[i+1][i+1]=0;

@@ -16,34 +16,23 @@ void floyd(int n, vector<vector<int>> &dist){
 }
 
 void solve(){
-    int n,m,q;
-    cin>>n>>m>>q;
+    int n,m;
+    cin>>n>>m;
     vector<vector <int>> dist(n+1,vector<int>(n+1,INF));
-    for(int i=0; i<n;i++){
-        dist[i+1][i+1]=0;
-    }
+   
     for(int i=0;i<m;i++){
         int u,v,w;
         cin>>u>>v>>w;
-        if (w < dist[u][v]) {
-            dist[u][v] = dist[v][u] = w;
-        }
+
+        dist[u][v]=min(dist[u][v],w);
     }
     
     floyd(n,dist);
-    // for(int i=0;i<n;i++){
-    //     for(int j=0;j<n;j++){
-    //         cout<< dist[i+1][j+1]<<" ";
-    //     }
-    //     cout<<endl;
-    // }
-    for(int i=0;i<q;i++){
-        int a,b;
-        cin>>a>>b;
-        if(dist[a][b]!=INF) cout<<dist[a][b]<<endl;
-        else cout<<-1<<endl;
+    int mini=INF;
+    for(int i=0;i<n;i++){
+        if(mini>dist[i+1][i+1]) mini=dist[i+1][i+1];
     }
-
+    cout<<mini;
 }
 int32_t main(){
  
