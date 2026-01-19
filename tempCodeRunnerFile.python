@@ -1,0 +1,57 @@
+import requests
+import pandas as pd
+from datetime import datetime
+
+def export_solved_to_excel(handle):
+    url = f"https://codeforces.com/api/user.status?handle={handle}"
+    
+    print(f"Fetching data for {handle}...")
+    response = requests.get(url)
+    data = response.json()
+
+    if data["status"] != "OK":
+        print(f"Error: {data.get('comment')}")
+        return
+
+    submissions = data["result"]
+    solved_problems = []
+    seen_problem_ids = set()
+
+    # The API returns newest first. 
+    # We reverse it immediately to process from oldest to newest.
+    submissions.reverse()
+
+    for sub in submissions:
+        if sub.get("verdict") == "OK":
+            problem = sub["problem"]
+            # Unique ID is ContestID + Index (e.g., 123A)
+            p_id = f"{problem.get('contestId', '')}{problem.get('index', '')}"
+            
+            # Check if we've already counted this problem (first solve only)
+            if p_id not in seen_problem_ids:
+                # Convert Unix timestamp to readable date
+                solve_date = datetime.fromtimestamp(sub["creationTimeSeconds"]).strftime('%Y-%m-%d %H:%M:%S')
+                
+                solved_problems.append({
+                    "Date Solved": solve_date,
+                    "Contest ID": problem.get("contestId"),
+                    "Problem Index": problem.get("index"),
+                    "Problem Name": problem.get("name"),
+                    "Rating": problem.get("rating", "N/A"),
+                    "Language": sub.get("programmingLanguage"),
+                    "Tags": ", ".join(problem.get("tags", []))
+                })
+                seen_problem_ids.add(p_id)
+
+    # Convert to a DataFrame
+    df = pd.DataFrame(solved_problems)
+
+    # Export to Excel
+    filename = f"{handle}_solved_problems.xlsx"
+    df.to_excel(filename, index=False)
+    
+    print(f"Success! {len(df)} unique problems exported to {filename}")
+
+# --- Run the Script ---
+user_handle = "Kevin114514"  # Change this to any handle
+export_solved_to_excel(user_handle)
