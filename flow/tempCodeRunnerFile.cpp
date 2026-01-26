@@ -1,1 +1,1 @@
- cout<<s<<endl;
+cout<<"hell"<<endl;
