@@ -1,0 +1,1 @@
+{"name":"Local: job","url":"c:\\Users\\user\\Downloads\\snip\\snippets\\flow\\job.cpp","tests":[{"id":1769409884110,"input":"3 3\n1\n2 3\n3 1 2","output":""}],"interactive":false,"memoryLimit":1024,"timeLimit":3000,"srcPath":"c:\\Users\\user\\Downloads\\snip\\snippets\\flow\\job.cpp","group":"local","local":true}
