@@ -1,0 +1,192 @@
+-- ==============================================================================
+-- CSE 216: Online on PL/SQL - A1+A2
+-- ==============================================================================
+
+-- ------------------------------------------------------------------------------
+-- QUESTION A1: 
+-- Write a PL/SQL trigger to enforce: No employee's salary should ever exceed 
+-- the maximum salary and fall below the minimum salary defined for their job.
+-- ------------------------------------------------------------------------------
+
+CREATE OR REPLACE TRIGGER trg_check_salary_bounds
+BEFORE INSERT OR UPDATE OF salary, job_id ON employees
+FOR EACH ROW
+DECLARE
+    v_min_salary jobs.min_salary%TYPE;
+    v_max_salary jobs.max_salary%TYPE;
+BEGIN
+    -- Fetch the min and max salary for the employee's job
+    SELECT min_salary, max_salary 
+    INTO v_min_salary, v_max_salary
+    FROM jobs 
+    WHERE job_id = :NEW.job_id;
+
+    -- Enforce the business rule
+    IF :NEW.salary < v_min_salary OR :NEW.salary > v_max_salary THEN
+        RAISE_APPLICATION_ERROR(-20001, 'Salary must be between ' || v_min_salary || ' and ' || v_max_salary || ' for Job ID: ' || :NEW.job_id);
+    END IF;
+END;
+/
+
+-- ------------------------------------------------------------------------------
+-- QUESTION A2: 
+-- Write a procedure that takes emp_id and new_dept_id. If valid: save current 
+-- job to JOB_HISTORY, move employee, increase salary by 15%. Return a message 
+-- via an OUT parameter.
+-- ------------------------------------------------------------------------------
+
+CREATE OR REPLACE PROCEDURE proc_transfer_employee (
+    p_emp_id       IN  employees.employee_id%TYPE,
+    p_new_dept_id  IN  departments.department_id%TYPE,
+    p_msg          OUT VARCHAR2
+) AS
+    v_emp_count     NUMBER;
+    v_dept_count    NUMBER;
+    v_curr_job      employees.job_id%TYPE;
+    v_curr_dept     employees.department_id%TYPE;
+    v_hire_date     employees.hire_date%TYPE;
+BEGIN
+    -- 1. Check if employee exists
+    SELECT COUNT(*) INTO v_emp_count FROM employees WHERE employee_id = p_emp_id;
+    IF v_emp_count = 0 THEN
+        p_msg := 'Employee does not exist.';
+        RETURN;
+    END IF;
+
+    -- 2. Check if new department is valid
+    SELECT COUNT(*) INTO v_dept_count FROM departments WHERE department_id = p_new_dept_id;
+    IF v_dept_count = 0 THEN
+        p_msg := 'Department is invalid.';
+        RETURN;
+    END IF;
+
+    -- 3. Fetch current job details to save in history
+    SELECT job_id, department_id, hire_date 
+    INTO v_curr_job, v_curr_dept, v_hire_date
+    FROM employees 
+    WHERE employee_id = p_emp_id;
+
+    -- 4. Save to JOB_HISTORY (assuming end date is today)
+    INSERT INTO job_history (employee_id, start_date, end_date, job_id, department_id)
+    VALUES (p_emp_id, v_hire_date, SYSDATE, v_curr_job, v_curr_dept);
+
+    -- 5. Update the employee record
+    UPDATE employees
+    SET department_id = p_new_dept_id,
+        salary = salary * 1.15
+    WHERE employee_id = p_emp_id;
+
+    -- 6. Set success message
+    p_msg := 'Employee transferred successfully with 15% salary increase.';
+
+EXCEPTION
+    WHEN OTHERS THEN
+        p_msg := 'An error occurred: ' || SQLERRM;
+END;
+/
+
+
+-- ==============================================================================
+-- CSE 216: Online on PL/SQL - C1+C2
+-- ==============================================================================
+
+-- ------------------------------------------------------------------------------
+-- QUESTION C1: 
+-- Write a PL/SQL trigger to enforce: Total salary paid to all employees in 
+-- any single department must never exceed $50,000 after any salary modification.
+-- Note: A Statement-Level trigger is used here to avoid the "Mutating Table" 
+-- error (ORA-04091) that occurs if a Row-Level trigger tries to SUM its own table.
+-- ------------------------------------------------------------------------------
+
+CREATE OR REPLACE TRIGGER trg_dept_salary_cap
+AFTER INSERT OR UPDATE OF salary, department_id ON employees
+DECLARE
+    v_excess_dept departments.department_id%TYPE;
+    v_total_sal   NUMBER;
+BEGIN
+    -- Check if ANY department now exceeds the 50,000 limit
+    -- FETCH FIRST 1 ROW ONLY gets the first violator we find
+    SELECT department_id, SUM(salary) 
+    INTO v_excess_dept, v_total_sal
+    FROM employees
+    WHERE department_id IS NOT NULL
+    GROUP BY department_id
+    HAVING SUM(salary) > 50000
+    FETCH FIRST 1 ROW ONLY;
+
+    -- If a row is found, it raises an error and rolls back the statement
+    RAISE_APPLICATION_ERROR(-20002, 'Update failed. Total salary in department ' || v_excess_dept || ' exceeds the $50,000 limit.');
+
+EXCEPTION
+    -- If NO_DATA_FOUND is raised, it means no department exceeded $50,000, so we do nothing.
+    WHEN NO_DATA_FOUND THEN
+        NULL; 
+END;
+/
+
+-- ------------------------------------------------------------------------------
+-- QUESTION C2: 
+-- Write a function to check overpay. Input: emp_id. Returns: 1 (overpaid), 
+-- 0 (within range), -1 (no job data), NULL (no employee). 
+-- Logic: Calc service years. >=10y: max 95%. 5-9y: max 90%. <5y: max 85%.
+-- ------------------------------------------------------------------------------
+
+CREATE OR REPLACE FUNCTION fn_check_overpay (
+    p_emp_id IN employees.employee_id%TYPE
+) RETURN NUMBER IS
+    v_salary        employees.salary%TYPE;
+    v_hire_date     employees.hire_date%TYPE;
+    v_job_id        employees.job_id%TYPE;
+    v_max_salary    jobs.max_salary%TYPE;
+    v_years_service NUMBER;
+    v_allowed_max   NUMBER;
+BEGIN
+    -- 1. Check if employee exists and get data
+    BEGIN
+        SELECT salary, hire_date, job_id 
+        INTO v_salary, v_hire_date, v_job_id
+        FROM employees 
+        WHERE employee_id = p_emp_id;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RETURN NULL; -- Employee not found
+    END;
+
+    -- 2. Check if job data exists
+    IF v_job_id IS NULL THEN
+        RETURN -1;
+    END IF;
+
+    BEGIN
+        SELECT max_salary INTO v_max_salary
+        FROM jobs
+        WHERE job_id = v_job_id;
+    EXCEPTION
+        WHEN NO_DATA_FOUND THEN
+            RETURN -1; -- Job data missing
+    END;
+
+    -- 3. Calculate years of service
+    v_years_service := FLOOR(MONTHS_BETWEEN(SYSDATE, v_hire_date) / 12);
+
+    -- 4. Determine allowed maximum salary based on years
+    IF v_years_service >= 10 THEN
+        v_allowed_max := v_max_salary * 0.95;
+    ELSIF v_years_service >= 5 THEN
+        v_allowed_max := v_max_salary * 0.90;
+    ELSE
+        v_allowed_max := v_max_salary * 0.85;
+    END IF;
+
+    -- 5. Evaluate and return result
+    IF v_salary > v_allowed_max THEN
+        RETURN 1; -- Overpaid
+    ELSE
+        RETURN 0; -- Within range
+    END IF;
+    
+EXCEPTION
+    WHEN OTHERS THEN
+        RETURN NULL;
+END;
+/

@@ -1,0 +1,80 @@
+CREATE OR REPLACE TRIGGER CHECK_SAL_BOUND
+BEFORE INSERT OR UPDATE
+
+OF SALARY, JOB_ID
+ON EMPLOYEES
+
+FOR EACH ROW
+
+DECLARE 
+  VMIN NUMBER;
+  VMAX NUMBER;
+BEGIN
+  SELECT MIN_SALARY, MAX_SALARY INTO VMIN, VMAX
+  FROM JOBS
+  WHERE JOB_ID= :NEW.JOB_ID;
+  
+  IF :NEW.SALARY>VMAX OR :NEW.SALARY<VMIN THEN
+    RAISE_APPLICATION_ERROR(-20001,'DAJDSL');
+  END IF;
+END;
+/
+
+
+UPDATE EMPLOYEES SET SALARY=50000
+WHERE EMPLOYEE_ID=100;
+  
+CREATE OR REPLACE PROCEDURE HIST(
+  EID IN NUMBER, 
+  DID IN NUMBER, 
+  p_message OUT VARCHAR2 -- Added the OUT parameter here
+) IS 
+  OLD_DEPT EMPLOYEES.DEPARTMENT_ID%TYPE; -- Added missing semicolon
+  D_HIRE DATE;
+  ID_JOB EMPLOYEES.JOB_ID%TYPE;
+  V_DEPT_COUNT NUMBER; -- Added variable to check department
+BEGIN 
+  -- 1. Check if department exists (Cannot put a SELECT directly inside an IF)
+  SELECT COUNT(*) INTO V_DEPT_COUNT FROM DEPARTMENTS WHERE DEPARTMENT_ID = DID;
+  
+  IF V_DEPT_COUNT = 0 THEN 
+    p_message := 'DEPT NOT EXIST';
+    RETURN; -- Added RETURN to stop the procedure from continuing
+  END IF;
+  
+  -- 2. Fetch current employee details
+  SELECT JOB_ID, HIRE_DATE, DEPARTMENT_ID 
+  INTO ID_JOB, D_HIRE, OLD_DEPT
+  FROM EMPLOYEES
+  WHERE EMPLOYEE_ID = EID;
+  
+  -- 3. Insert into history
+  INSERT INTO JOB_HISTORY(EMPLOYEE_ID, START_DATE, END_DATE, JOB_ID, DEPARTMENT_ID) 
+  VALUES (EID, D_HIRE, SYSDATE, ID_JOB, OLD_DEPT);
+  
+  -- 4. Update employee
+  UPDATE EMPLOYEES
+  SET DEPARTMENT_ID = DID,     -- Added missing comma here
+      SALARY = SALARY * 1.15
+  WHERE EMPLOYEE_ID = EID;
+  
+  p_message := 'SET';
+
+EXCEPTION
+  WHEN NO_DATA_FOUND THEN
+    p_message := 'Error: Employee does not exist.';
+  WHEN OTHERS THEN
+    p_message := 'An unexpected error occurred: ' || SQLERRM;
+END;
+/
+
+-- Execution Block
+DECLARE
+  v_msg VARCHAR2(100);
+BEGIN
+  HIST(100, 110, v_msg);
+  DBMS_OUTPUT.PUT_LINE(v_msg);
+  
+  commit;
+END;
+/
